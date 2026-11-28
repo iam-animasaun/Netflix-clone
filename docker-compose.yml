@@ -16,7 +16,7 @@ services:
       retries: 5
 
   sonarqube:
-    image: sonarqube:community
+    image: sonarqube:26.11.0.134175-community
     restart: unless-stopped
     depends_on:
       db:
