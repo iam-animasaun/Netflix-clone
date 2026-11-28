@@ -1,17 +1,15 @@
-FROM node:16.17.0-alpine as builder
+# ---- Build stage ----
+FROM node:22-alpine AS build
 WORKDIR /app
-COPY ./package.json .
-COPY ./yarn.lock .
-RUN yarn install
+COPY package.json yarn.lock ./
+RUN yarn install --frozen-lockfile
 COPY . .
-ARG TMDB_V3_API_KEY
-ENV VITE_APP_TMDB_V3_API_KEY=${TMDB_V3_API_KEY}
-ENV VITE_APP_API_ENDPOINT_URL="https://api.themoviedb.org/3"
-RUN yarn build
+ENV VITE_APP_API_ENDPOINT_URL=https://api.themoviedb.org/3
+RUN --mount=type=secret,id=tmdb_key \
+    VITE_APP_TMDB_V3_API_KEY="$(cat /run/secrets/tmdb_key)" yarn build
 
-FROM nginx:stable-alpine
-WORKDIR /usr/share/nginx/html
-RUN rm -rf ./*
-COPY --from=builder /app/dist .
-EXPOSE 80
-ENTRYPOINT ["nginx", "-g", "daemon off;"]
+# ---- Runtime stage: non-root nginx ----
+FROM nginxinc/nginx-unprivileged:stable-alpine
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=build /app/dist /usr/share/nginx/html
+EXPOSE 8080
